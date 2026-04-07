@@ -25,7 +25,7 @@ func setenv(t *testing.T, pairs ...string) {
 func TestLoad_HappyPath(t *testing.T) {
 	config.Reset()
 	setenv(t,
-		"SCENARIO_PATH", "/tmp/scenarios",
+		"SCENARIOS_ROOT", "/tmp/senarios",
 		"LOG_LEVEL", "debug",
 		"NAMESPACE", "test-ns",
 		"IMAGE", "my-image:v1",
@@ -37,8 +37,8 @@ func TestLoad_HappyPath(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if s.ScenarioPath != "/tmp/scenarios" {
-		t.Errorf("ScenarioPath: got %q, want %q", s.ScenarioPath, "/tmp/scenarios")
+	if s.ScenariosRoot != "/tmp/senarios" {
+		t.Errorf("ScenariosRoot: got %q, want %q", s.ScenariosRoot, "/tmp/senarios")
 	}
 	if s.LogLevel != slog.LevelDebug {
 		t.Errorf("LogLevel: got %v, want %v", s.LogLevel, slog.LevelDebug)
@@ -57,7 +57,7 @@ func TestLoad_HappyPath(t *testing.T) {
 func TestLoad_Defaults(t *testing.T) {
 	config.Reset()
 	// Only set the required field; everything else should use defaults.
-	setenv(t, "SCENARIO_PATH", "/tmp/scenarios")
+	setenv(t, "SCENARIOS_ROOT", "/tmp/senarios")
 
 	s, err := config.Load()
 	if err != nil {
@@ -80,19 +80,19 @@ func TestLoad_Defaults(t *testing.T) {
 
 func TestLoad_MissingScenarioPath(t *testing.T) {
 	config.Reset()
-	// Explicitly unset SCENARIO_PATH (t.Setenv will restore it after the test).
-	t.Setenv("SCENARIO_PATH", "")
+	// Explicitly unset SCENARIOS_ROOT (t.Setenv will restore it after the test).
+	t.Setenv("SCENARIOS_ROOT", "")
 
 	_, err := config.Load()
 	if err == nil {
-		t.Fatal("expected error for missing SCENARIO_PATH, got nil")
+		t.Fatal("expected error for missing SCENARIOS_ROOT, got nil")
 	}
 }
 
 func TestLoad_InvalidLogLevel(t *testing.T) {
 	config.Reset()
 	setenv(t,
-		"SCENARIO_PATH", "/tmp/scenarios",
+		"SCENARIOS_ROOT", "/tmp/senarios",
 		"LOG_LEVEL", "verbose", // not a valid slog level
 	)
 
@@ -105,7 +105,7 @@ func TestLoad_InvalidLogLevel(t *testing.T) {
 func TestLoad_InvalidTimeout(t *testing.T) {
 	config.Reset()
 	setenv(t,
-		"SCENARIO_PATH", "/tmp/scenarios",
+		"SCENARIOS_ROOT", "/tmp/senarios",
 		"TIMEOUT", "not-a-duration",
 	)
 
@@ -117,7 +117,7 @@ func TestLoad_InvalidTimeout(t *testing.T) {
 
 func TestLoad_Singleton(t *testing.T) {
 	config.Reset()
-	setenv(t, "SCENARIO_PATH", "/tmp/scenarios")
+	setenv(t, "SCENARIOS_ROOT", "/tmp/senarios")
 
 	first, err := config.Load()
 	if err != nil {
@@ -153,7 +153,7 @@ func TestLoad_AllLogLevels(t *testing.T) {
 		t.Run(tc.input, func(t *testing.T) {
 			config.Reset()
 			setenv(t,
-				"SCENARIO_PATH", "/tmp/scenarios",
+				"SCENARIOS_ROOT", "/tmp/senarios",
 				"LOG_LEVEL", tc.input,
 			)
 			s, err := config.Load()
@@ -169,11 +169,11 @@ func TestLoad_AllLogLevels(t *testing.T) {
 
 func TestMustLoad_Panics(t *testing.T) {
 	config.Reset()
-	t.Setenv("SCENARIO_PATH", "") // missing required field
+	t.Setenv("SCENARIOS_ROOT", "") // missing required field
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("MustLoad() did not panic on missing SCENARIO_PATH")
+			t.Error("MustLoad() did not panic on missing SCENARIOS_ROOT")
 		}
 	}()
 	config.MustLoad()

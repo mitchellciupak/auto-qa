@@ -17,9 +17,10 @@ type ApplicationSettings struct {
 	// Valid values: "debug", "info", "warn", "error". Defaults to "info".
 	LogLevel slog.Level
 
-	// ScenarioPath is the filesystem path to the scenarios directory.
-	// Sourced from SCENARIO_PATH. Required.
-	ScenarioPath string
+	// ScenariosRoot is the filesystem path to the top-level senarios directory.
+	// Each immediate subdirectory that contains a senario.yaml is treated as a
+	// scenario to run. Sourced from SCENARIOS_ROOT. Required.
+	ScenariosRoot string
 
 	// Kubeconfig is the path to the kubeconfig file.
 	// Sourced from KUBECONFIG. Defaults to ~/.kube/config via client-go conventions.
@@ -67,6 +68,7 @@ func MustLoad() *ApplicationSettings {
 
 // load reads environment variables and builds a new ApplicationSettings.
 func load() (*ApplicationSettings, error) {
+	// Defaults placed here
 	s := &ApplicationSettings{
 		LogLevel:  slog.LevelInfo,
 		Namespace: "auto-qa",
@@ -83,10 +85,10 @@ func load() (*ApplicationSettings, error) {
 		}
 	}
 
-	// SCENARIO_PATH — required
-	s.ScenarioPath = os.Getenv("SCENARIO_PATH")
-	if s.ScenarioPath == "" {
-		errs = append(errs, errors.New("SCENARIO_PATH is required but not set"))
+	// SCENARIOS_ROOT — required; top-level directory containing all scenario subdirs
+	s.ScenariosRoot = os.Getenv("SCENARIOS_ROOT")
+	if s.ScenariosRoot == "" {
+		errs = append(errs, errors.New("SCENARIOS_ROOT is required but not set"))
 	}
 
 	// KUBECONFIG — optional, empty string defers to client-go's default resolution
