@@ -24,6 +24,19 @@ spec:
           args: ["--watch", "/data/db.json", "--host", "::"]
           ports:
             - containerPort: 80
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /posts
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 3
           volumeMounts:
             - name: data
               mountPath: /data
@@ -78,6 +91,19 @@ spec:
           image: nginx:alpine
           ports:
             - containerPort: 80
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 3
           volumeMounts:
             - name: html
               mountPath: /usr/share/nginx/html
@@ -126,7 +152,7 @@ metadata:
 data:
   default.conf: |
     server {
-      listen 80;
+      listen [::]:80 ipv6only=off;
       server_name _;
 
       location / {

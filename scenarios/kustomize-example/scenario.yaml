@@ -1,0 +1,24 @@
+# Requires https://fluxcd.io/ to be bootstrapped to the target cluster
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: podinfo
+spec:
+  interval: 5m
+  url: oci://ghcr.io/stefanprodan/manifests/podinfo
+  ref:
+    tag: latest
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: podinfo
+spec:
+  interval: 10m
+  targetNamespace: default
+  sourceRef:
+    kind: OCIRepository
+    name: podinfo
+  path: "./"
+  prune: true
+  timeout: 1m

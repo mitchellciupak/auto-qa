@@ -22,8 +22,13 @@ repos:
   rev: v0.5.1
   hooks:
   - id: go-fmt      # Runs 'gofmt -w'
-  - id: go-vet      # Runs 'go vet'
   - id: go-mod-tidy # Runs 'go mod tidy'
+
+- repo: https://github.com/tekwizely/pre-commit-golang
+  rev: v1.0.0-rc.4
+  hooks:
+  - id: go-vet-repo-mod # Runs 'go vet ./...' from module root
+  - id: go-test-repo-mod # Runs 'go test ./...' from module root
 
 - repo: https://github.com/compilerla/conventional-pre-commit
   rev: v4.2.0

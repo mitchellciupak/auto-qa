@@ -17,9 +17,9 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
-)
 
-const fieldManager = "auto-qa"
+	"auto-qa/internal/constants"
+)
 
 // Applier applies and deletes Kubernetes resources described by YAML files.
 // It uses server-side apply so it works cleanly on repeated runs and plays
@@ -31,6 +31,8 @@ type Applier struct {
 	// Intended for testing only.
 	mapper meta.RESTMapper
 }
+
+const kubeDefaultNamespace = "default"
 
 // New returns an Applier backed by the given dynamic and discovery clients.
 func New(dyn dynamic.Interface, disc discovery.DiscoveryInterface) *Applier {
@@ -98,7 +100,7 @@ func (a *Applier) applyObject(ctx context.Context, mapper meta.RESTMapper, obj *
 	}
 
 	_, err = ri.Patch(ctx, obj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{
-		FieldManager: fieldManager,
+		FieldManager: constants.FieldManager,
 		Force:        boolPtr(true),
 	})
 	if err != nil {
@@ -149,7 +151,7 @@ func resourceInterface(dyn dynamic.Interface, mapper meta.RESTMapper, obj *unstr
 	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 		ns := obj.GetNamespace()
 		if ns == "" {
-			ns = "default"
+			ns = kubeDefaultNamespace
 		}
 		return dyn.Resource(mapping.Resource).Namespace(ns), nil
 	}
@@ -189,7 +191,11 @@ func decodeFile(path string) ([]*unstructured.Unstructured, error) {
 
 		// Use the YAML decoder to ensure full type metadata is resolved.
 		typedObj := &unstructured.Unstructured{}
-		if _, _, err := dec.Decode(mustMarshalYAML(rawObj), nil, typedObj); err != nil {
+		jsonData, err := marshalRawObject(rawObj)
+		if err != nil {
+			return nil, fmt.Errorf("encoding object in %q: %w", path, err)
+		}
+		if _, _, err := dec.Decode(jsonData, nil, typedObj); err != nil {
 			return nil, fmt.Errorf("decoding object in %q: %w", path, err)
 		}
 		objects = append(objects, typedObj)
@@ -197,15 +203,91 @@ func decodeFile(path string) ([]*unstructured.Unstructured, error) {
 	return objects, nil
 }
 
-// mustMarshalYAML converts a raw map back to YAML bytes for re-decoding.
-// Panics on marshal error, which should never happen for a map[string]interface{}.
-func mustMarshalYAML(v map[string]interface{}) []byte {
+// marshalRawObject converts a raw map back to JSON bytes for re-decoding.
+func marshalRawObject(v map[string]interface{}) ([]byte, error) {
 	u := &unstructured.Unstructured{Object: v}
 	data, err := u.MarshalJSON()
 	if err != nil {
-		panic(fmt.Sprintf("applier: marshal failed: %v", err))
+		return nil, err
 	}
-	return data
+	return data, nil
+}
+
+// WorkloadRef identifies a single namespaced Kubernetes resource.
+type WorkloadRef struct {
+	APIVersion string
+	Kind       string
+	Namespace  string
+	Name       string
+}
+
+// WorkloadsFromFile reads the YAML file at path and returns a WorkloadRef for
+// every namespaced resource it contains. Namespace-scoped resources without an
+// explicit metadata.namespace are resolved to the Kubernetes "default"
+// namespace, matching apply semantics.
+func (a *Applier) WorkloadsFromFile(path string) ([]WorkloadRef, error) {
+	objects, err := decodeFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	mapper, err := a.buildMapper()
+	if err != nil {
+		return nil, err
+	}
+
+	return workloadsFromObjects(objects, mapper)
+}
+
+// WorkloadsFromFile reads the YAML file at path and returns a WorkloadRef for
+// every namespaced resource it contains. Cluster-scoped resources (empty
+// namespace) are omitted. The returned slice preserves document order.
+func WorkloadsFromFile(path string) ([]WorkloadRef, error) {
+	objects, err := decodeFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var result []WorkloadRef
+	for _, obj := range objects {
+		ns := obj.GetNamespace()
+		if ns == "" {
+			continue
+		}
+		result = append(result, WorkloadRef{
+			APIVersion: obj.GetAPIVersion(),
+			Kind:       obj.GetKind(),
+			Namespace:  ns,
+			Name:       obj.GetName(),
+		})
+	}
+	return result, nil
+}
+
+func workloadsFromObjects(objects []*unstructured.Unstructured, mapper meta.RESTMapper) ([]WorkloadRef, error) {
+	var result []WorkloadRef
+	for _, obj := range objects {
+		gvk := obj.GroupVersionKind()
+		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return nil, fmt.Errorf("mapping %s/%s: %w", obj.GetKind(), obj.GetName(), err)
+		}
+		if mapping.Scope.Name() != meta.RESTScopeNameNamespace {
+			continue
+		}
+
+		ns := obj.GetNamespace()
+		if ns == "" {
+			ns = kubeDefaultNamespace
+		}
+
+		result = append(result, WorkloadRef{
+			APIVersion: obj.GetAPIVersion(),
+			Kind:       obj.GetKind(),
+			Namespace:  ns,
+			Name:       obj.GetName(),
+		})
+	}
+	return result, nil
 }
 
 func boolPtr(b bool) *bool { return &b }

@@ -9,7 +9,7 @@ This scenario deploys a small app in Kubernetes:
 ### Manual Deploy
 
 ```bash
-kubectl apply -f senario.yaml
+kubectl apply -f scenario.yaml
 ```
 
 ### Access Locally
