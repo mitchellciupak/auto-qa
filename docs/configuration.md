@@ -12,9 +12,9 @@ Defaults are set as a struct literal at the top of the private `load()` function
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `SCENARIOS_ROOT` | yes | — | Path to the top-level senarios directory. Every immediate subdirectory that contains a `senario.yaml` is treated as a scenario to run. |
+| `SCENARIOS_ROOT` | yes | — | Path to the top-level scenarios directory. Every immediate subdirectory that contains a `scenario.yaml` and a `runner.yaml` is treated as a scenario to run. |
 | `KUBECONFIG` | no | `~/.kube/config` | Path to kubeconfig file. Falls back to client-go's in-cluster detection if empty. |
 | `NAMESPACE` | no | `auto-qa` | Kubernetes namespace where test Jobs are created. |
-| `IMAGE` | no | `busybox:latest` | Container image for the test runner Job. |
-| `TIMEOUT` | no | `5m` | Maximum wall-clock time for the entire run (Go duration string, e.g. `10m`, `90s`). |
+| `TIMEOUT` | no | `5m` | Default timeout for each scenario (Go duration string, e.g. `10m`, `90s`). Individual scenarios can override this in `runner.yaml`. |
+| `REPORT_PATH` | no | — | Path where the run report is written. |
 | `LOG_LEVEL` | no | `info` | Minimum log severity: `debug`, `info`, `warn`, or `error`. |

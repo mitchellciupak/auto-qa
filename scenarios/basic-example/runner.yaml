@@ -1,0 +1,36 @@
+timeout: 5m
+
+test_suites:
+  - name: api-tests
+    image: python:3.13-slim
+    command: ["sh", "-c"]
+    args:
+      - "pip install -r /requirements.txt --quiet && pytest /tests/api_test.py -v --tb=short"
+    env:
+      - name: API_BASE_URL
+        value: "http://test-api.test-app.svc.cluster.local"
+    files:
+      - src: tests/example_pytest_test.py
+        mountPath: /tests/api_test.py
+      - src: tests/requirements.txt
+        mountPath: /requirements.txt
+    priority: 0
+
+  - name: ui-tests
+    image: mcr.microsoft.com/playwright:v1.59.1-noble
+    command: ["sh", "-c"]
+    args:
+      - "cd /playwright && npm ci --quiet && npx playwright test --reporter=line"
+    env:
+      - name: UI_BASE_URL
+        value: "http://test-ui.test-app.svc.cluster.local"
+    files:
+      - src: tests/package.json
+        mountPath: /playwright/package.json
+      - src: tests/package-lock.json
+        mountPath: /playwright/package-lock.json
+      - src: tests/playwright.config.ts
+        mountPath: /playwright/playwright.config.ts
+      - src: tests/ui_test.spec.ts
+        mountPath: /playwright/tests/ui_test.spec.ts
+    priority: 0

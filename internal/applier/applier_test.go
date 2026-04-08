@@ -37,7 +37,7 @@ data:
 func writeYAML(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
-	p := filepath.Join(dir, "senario.yaml")
+	p := filepath.Join(dir, "scenario.yaml")
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatalf("write yaml: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestApplyFile_ReturnsNoErrorOnValidYAML(t *testing.T) {
 func TestApplyFile_ReturnsErrorOnMissingFile(t *testing.T) {
 	a := newTestApplier(t)
 
-	err := a.ApplyFile(context.Background(), "/nonexistent/path/senario.yaml")
+	err := a.ApplyFile(context.Background(), "/nonexistent/path/scenario.yaml")
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
 	}
@@ -149,7 +149,7 @@ func TestDeleteFile_ReturnsNoErrorWhenResourcesMissing(t *testing.T) {
 func TestDeleteFile_ReturnsErrorOnMissingFile(t *testing.T) {
 	a := newTestApplier(t)
 
-	err := a.DeleteFile(context.Background(), "/nonexistent/path/senario.yaml")
+	err := a.DeleteFile(context.Background(), "/nonexistent/path/scenario.yaml")
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
 	}
@@ -185,6 +185,43 @@ metadata:
 
 	if err := a.ApplyFile(context.Background(), path); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestWorkloadsFromFile_DefaultsEmptyNamespaceForNamespacedResources(t *testing.T) {
+	path := writeYAML(t, `
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-applier-ns
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: implicit-default
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: explicit-ns
+  namespace: app-ns
+`)
+
+	a := newTestApplier(t)
+	refs, err := a.WorkloadsFromFile(path)
+	if err != nil {
+		t.Fatalf("WorkloadsFromFile returned unexpected error: %v", err)
+	}
+
+	if len(refs) != 2 {
+		t.Fatalf("expected 2 workload refs, got %d", len(refs))
+	}
+
+	if refs[0].Kind != "ConfigMap" || refs[0].Name != "implicit-default" || refs[0].Namespace != "default" {
+		t.Fatalf("unexpected first ref: %#v", refs[0])
+	}
+	if refs[1].Kind != "ConfigMap" || refs[1].Name != "explicit-ns" || refs[1].Namespace != "app-ns" {
+		t.Fatalf("unexpected second ref: %#v", refs[1])
 	}
 }
 

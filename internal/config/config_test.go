@@ -28,7 +28,6 @@ func TestLoad_HappyPath(t *testing.T) {
 		"SCENARIOS_ROOT", "/tmp/senarios",
 		"LOG_LEVEL", "debug",
 		"NAMESPACE", "test-ns",
-		"IMAGE", "my-image:v1",
 		"TIMEOUT", "10m",
 	)
 
@@ -46,9 +45,6 @@ func TestLoad_HappyPath(t *testing.T) {
 	if s.Namespace != "test-ns" {
 		t.Errorf("Namespace: got %q, want %q", s.Namespace, "test-ns")
 	}
-	if s.Image != "my-image:v1" {
-		t.Errorf("Image: got %q, want %q", s.Image, "my-image:v1")
-	}
 	if s.Timeout != 10*time.Minute {
 		t.Errorf("Timeout: got %v, want %v", s.Timeout, 10*time.Minute)
 	}
@@ -58,6 +54,7 @@ func TestLoad_Defaults(t *testing.T) {
 	config.Reset()
 	// Only set the required field; everything else should use defaults.
 	setenv(t, "SCENARIOS_ROOT", "/tmp/senarios")
+	t.Setenv("TIMEOUT", "") // ensure any ambient TIMEOUT env var doesn't override the default
 
 	s, err := config.Load()
 	if err != nil {
@@ -69,9 +66,6 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 	if s.Namespace != "auto-qa" {
 		t.Errorf("Namespace default: got %q, want %q", s.Namespace, "auto-qa")
-	}
-	if s.Image != "busybox:latest" {
-		t.Errorf("Image default: got %q, want %q", s.Image, "busybox:latest")
 	}
 	if s.Timeout != 5*time.Minute {
 		t.Errorf("Timeout default: got %v, want %v", s.Timeout, 5*time.Minute)
@@ -112,6 +106,31 @@ func TestLoad_InvalidTimeout(t *testing.T) {
 	_, err := config.Load()
 	if err == nil {
 		t.Fatal("expected error for invalid TIMEOUT, got nil")
+	}
+}
+
+func TestLoad_NonPositiveTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		timeout string
+	}{
+		{name: "zero", timeout: "0"},
+		{name: "negative", timeout: "-30s"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config.Reset()
+			setenv(t,
+				"SCENARIOS_ROOT", "/tmp/senarios",
+				"TIMEOUT", tt.timeout,
+			)
+
+			_, err := config.Load()
+			if err == nil {
+				t.Fatalf("expected error for TIMEOUT=%q, got nil", tt.timeout)
+			}
+		})
 	}
 }
 

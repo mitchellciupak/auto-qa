@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"auto-qa/internal/constants"
 )
 
 // ApplicationSettings holds all runtime configuration for the application.
@@ -17,9 +19,9 @@ type ApplicationSettings struct {
 	// Valid values: "debug", "info", "warn", "error". Defaults to "info".
 	LogLevel slog.Level
 
-	// ScenariosRoot is the filesystem path to the top-level senarios directory.
-	// Each immediate subdirectory that contains a senario.yaml is treated as a
-	// scenario to run. Sourced from SCENARIOS_ROOT. Required.
+	// ScenariosRoot is the filesystem path to the top-level scenarios directory.
+	// Each immediate subdirectory that contains both scenario.yaml and runner.yaml
+	// is treated as a scenario to run. Sourced from SCENARIOS_ROOT. Required.
 	ScenariosRoot string
 
 	// Kubeconfig is the path to the kubeconfig file.
@@ -30,14 +32,16 @@ type ApplicationSettings struct {
 	// Sourced from NAMESPACE. Defaults to "auto-qa".
 	Namespace string
 
-	// Image is the container image used for the test runner.
-	// Sourced from IMAGE. Defaults to "busybox:latest".
-	Image string
-
-	// Timeout is the maximum time to wait for a job to complete.
+	// Timeout is the default maximum time allowed for an individual scenario run
+	// when that scenario does not specify its own timeout in runner.yaml.
 	// Sourced from TIMEOUT as a Go duration string (e.g. "5m", "30s").
 	// Defaults to 5 minutes.
 	Timeout time.Duration
+
+	// ReportPath is the filesystem path where a JSON results report will be
+	// written after all scenarios complete. Sourced from REPORT_PATH.
+	// When empty (the default), no report file is written.
+	ReportPath string
 }
 
 var (
@@ -71,8 +75,7 @@ func load() (*ApplicationSettings, error) {
 	// Defaults placed here
 	s := &ApplicationSettings{
 		LogLevel:  slog.LevelInfo,
-		Namespace: "auto-qa",
-		Image:     "busybox:latest",
+		Namespace: constants.DefaultNamespace,
 		Timeout:   5 * time.Minute,
 	}
 
@@ -99,20 +102,20 @@ func load() (*ApplicationSettings, error) {
 		s.Namespace = v
 	}
 
-	// IMAGE — optional
-	if v := os.Getenv("IMAGE"); v != "" {
-		s.Image = v
-	}
-
-	// TIMEOUT — optional, must be a valid Go duration string
+	// TIMEOUT — optional, must be a valid positive Go duration string
 	if raw := os.Getenv("TIMEOUT"); raw != "" {
 		d, err := time.ParseDuration(raw)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("TIMEOUT %q is not a valid duration (e.g. \"5m\", \"30s\"): %w", raw, err))
+		} else if d <= 0 {
+			errs = append(errs, fmt.Errorf("TIMEOUT %q must be greater than 0", raw))
 		} else {
 			s.Timeout = d
 		}
 	}
+
+	// REPORT_PATH — optional; when set, a JSON report is written to this path
+	s.ReportPath = os.Getenv("REPORT_PATH")
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)

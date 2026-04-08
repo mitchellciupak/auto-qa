@@ -1,0 +1,8 @@
+timeout: 10m
+
+test_suites:
+  - name: podinfo-smoke
+    image: curlimages/curl:8.8.0
+    command: ["sh", "-c"]
+    args:
+      - 'for i in $(seq 1 60); do curl -fsS "http://podinfo.default.svc.cluster.local:9898/healthz" && exit 0; sleep 5; done; echo "podinfo health check failed"; exit 1'

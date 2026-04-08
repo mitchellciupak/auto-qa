@@ -1,0 +1,5 @@
+test_suites:
+  - name: disabled-smoke
+    enabled: false
+    image: busybox:latest
+    args: ["echo", "this should be skipped"]
